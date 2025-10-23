@@ -16,5 +16,5 @@ interface ScreenTimeDao {
     fun getAll(): Flow<List<ScreenTimeEntity>>
 
     @Query("SELECT * FROM screen_time WHERE date = :date LIMIT 1")
-    suspend fun getByDate(date: String): ScreenTimeEntity
+    suspend fun getByDate(date: String): ScreenTimeEntity?
 }

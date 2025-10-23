@@ -4,7 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import com.ga.brainrush.data.db.AppDatabase
 import com.ga.brainrush.data.model.ScreenTimeEntity
+import com.ga.brainrush.data.util.UsageStatsHelper
 import kotlinx.coroutines.flow.Flow
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class ScreenTimeRepository private constructor(context: Context) {
     private val db = Room.databaseBuilder(
@@ -32,4 +36,18 @@ class ScreenTimeRepository private constructor(context: Context) {
             }
         }
     }
+    suspend fun updateTodayUsage(context: Context) {
+        val usageMap = UsageStatsHelper.getTodayUsage(context)
+        val totalMinutes = usageMap.values.sum().toInt()
+
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val existing = dao.getByDate(today)
+
+        if (existing != null) {
+            dao.insert(existing.copy(totalMinutes = totalMinutes))
+        } else {
+            dao.insert(ScreenTimeEntity(date = today, totalMinutes = totalMinutes))
+        }
+    }
+
 }
