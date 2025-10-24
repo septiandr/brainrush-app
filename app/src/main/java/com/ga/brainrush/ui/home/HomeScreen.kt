@@ -369,7 +369,7 @@ fun HomeScreen(onNavigateToStats: () -> Unit) {
                                 selectedSeries = UsageStatsHelper.getUsageLastNDays(context, pkg, 7)
                                 selectedHourly = UsageStatsHelper.getUsageTodayHourly(context, pkg)
                                 chartRange = ChartRange.Day // default tampilkan per jam saat dipilih
-                                scope.launch { listState.animateScrollToItem(1) }
+                                scope.launch { listState.animateScrollToItem(1.2) }
                             },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
