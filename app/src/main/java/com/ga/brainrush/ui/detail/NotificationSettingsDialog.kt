@@ -128,7 +128,21 @@ fun NotificationSettingsDialog(pkg: String, onDismiss: () -> Unit) {
                     // Simpan preferensi auto-open
                     NotificationModeStore.setAutoOpen(context, pkg, autoOpen.value)
 
+                    // Pastikan WorkManager fallback aktif
                     UsageAlertScheduler.ensurePeriodicWork(context)
+
+                    // Mulai Foreground Service segera jika ada paket dimonitor & izin usage tersedia
+                    try {
+                        val hasMonitored = NotificationModeStore.getPackagesByMode(context, NotificationModeStore.MODE_INTERVAL).isNotEmpty() ||
+                                UsageThresholdStore.getAllThresholds(context).isNotEmpty()
+                        if (hasMonitored && com.ga.brainrush.data.util.UsageStatsHelper.hasUsagePermission(context)) {
+                            androidx.core.content.ContextCompat.startForegroundService(
+                                context,
+                                android.content.Intent(context, com.ga.brainrush.alerts.UsageMonitorService::class.java)
+                            )
+                        }
+                    } catch (_: Exception) {}
+
                     inputError.value = null
                     onDismiss()
                 }

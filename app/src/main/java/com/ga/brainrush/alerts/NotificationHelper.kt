@@ -97,7 +97,37 @@ object NotificationHelper {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
-
+        // Tambahkan hitung mundur (chronometer) di notifikasi
+        try {
+            val remainingMillis = if (mode == NotificationModeStore.MODE_INTERVAL) {
+                // Untuk mode interval, mulai hitung mundur dari interval menit
+                (thresholdMinutes * 60_000L)
+            } else {
+                // Untuk mode batas harian, hitung mundur sampai tengah malam berikutnya
+                val cal = java.util.Calendar.getInstance()
+                val now = cal.timeInMillis
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+                cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+                cal.set(java.util.Calendar.MINUTE, 0)
+                cal.set(java.util.Calendar.SECOND, 0)
+                cal.set(java.util.Calendar.MILLISECOND, 0)
+                (cal.timeInMillis - now).coerceAtLeast(1_000L)
+            }
+            builder.setShowWhen(true)
+            builder.setUsesChronometer(true)
+            // Set "when" ke masa depan agar chronometer menghitung mundur
+            builder.setWhen(System.currentTimeMillis() + remainingMillis)
+            // Jika tersedia, aktifkan mode countdown
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                try {
+                    builder.setChronometerCountDown(true)
+                } catch (_: Throwable) { /* di beberapa versi compat mungkin tidak tersedia */ }
+            }
+            // Agar timer terlihat di sebagian besar perangkat, jadikan ongoing dan auto-dismiss saat selesai
+            builder.setOngoing(true)
+            builder.setOnlyAlertOnce(true)
+            builder.setTimeoutAfter(remainingMillis)
+        } catch (_: Exception) {}
         // Jika auto-open diaktifkan, gunakan fullScreenIntent agar UI segera ditampilkan
         if (NotificationModeStore.isAutoOpen(context, packageName)) {
             builder.setFullScreenIntent(pendingIntent, true)

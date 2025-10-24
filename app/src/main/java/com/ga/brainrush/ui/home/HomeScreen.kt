@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import ir.ehsannarmani.compose_charts.LineChart
 import ir.ehsannarmani.compose_charts.models.Line
 import java.text.SimpleDateFormat
+import com.ga.brainrush.alerts.NotificationModeStore
 import com.ga.brainrush.alerts.UsageThresholdStore
 import com.ga.brainrush.alerts.UsageAlertScheduler
 import androidx.compose.foundation.text.KeyboardOptions
@@ -420,6 +421,18 @@ fun HomeScreen(onNavigateToDetail: (String) -> Unit, onNavigateToMonitoredList: 
                                     } else {
                                         UsageThresholdStore.setThreshold(context, dialogPkg!!, v)
                                         UsageAlertScheduler.ensurePeriodicWork(context)
+                                        // Mulai Foreground Service segera jika ada paket dimonitor & izin usage tersedia
+                                        try {
+                                            val hasMonitored = NotificationModeStore.getPackagesByMode(context, NotificationModeStore.MODE_INTERVAL).isNotEmpty() ||
+                                                    UsageThresholdStore.getAllThresholds(context).isNotEmpty()
+                                            if (hasMonitored && com.ga.brainrush.data.util.UsageStatsHelper.hasUsagePermission(context)) {
+                                                androidx.core.content.ContextCompat.startForegroundService(
+                                                    context,
+                                                    android.content.Intent(context, com.ga.brainrush.alerts.UsageMonitorService::class.java)
+                                                )
+                                            }
+                                        } catch (_: Exception) {}
+
                                         dialogPkg = null
                                         inputError = null
                                     }

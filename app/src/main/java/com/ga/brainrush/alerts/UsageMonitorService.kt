@@ -3,6 +3,7 @@ package com.ga.brainrush.alerts
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,7 +47,9 @@ class UsageMonitorService : Service() {
             val usedMinutes = com.ga.brainrush.data.util.UsageStatsHelper.getUsageTodayHourly(context, pkg).sum().toInt()
             val interval = NotificationModeStore.getIntervalMinutes(context, pkg) ?: 5
             val lastMark = NotificationModeStore.getLastIntervalMark(context, pkg, dateKey) ?: 0
-            if (usedMinutes >= lastMark + interval && usedMinutes > 0) {
+            val shouldNotify = usedMinutes >= lastMark + interval && usedMinutes > 0
+            Log.d("BR_USAGE_SERVICE", "INTERVAL pkg=$pkg used=$usedMinutes interval=$interval lastMark=$lastMark notify=$shouldNotify")
+            if (shouldNotify) {
                 NotificationHelper.showUsageExceeded(context, pkg, usedMinutes, interval)
                 val newMark = usedMinutes - (usedMinutes % interval)
                 NotificationModeStore.setLastIntervalMark(context, pkg, dateKey, newMark)
@@ -59,12 +62,12 @@ class UsageMonitorService : Service() {
             val usedMinutes = com.ga.brainrush.data.util.UsageStatsHelper.getUsageTodayHourly(context, pkg).sum().toInt()
             val mode = NotificationModeStore.getMode(context, pkg) ?: NotificationModeStore.MODE_IMMEDIATE
             if (mode == NotificationModeStore.MODE_IMMEDIATE) {
-                if (usedMinutes >= threshold && threshold > 0) {
-                    val already = NotificationModeStore.getThresholdNotified(context, pkg, dateKey)
-                    if (!already) {
-                        NotificationHelper.showUsageExceeded(context, pkg, usedMinutes, threshold)
-                        NotificationModeStore.setThresholdNotified(context, pkg, dateKey, true)
-                    }
+                val already = NotificationModeStore.getThresholdNotified(context, pkg, dateKey)
+                val shouldNotify = usedMinutes >= threshold && threshold > 0 && !already
+                Log.d("BR_USAGE_SERVICE", "IMMEDIATE pkg=$pkg used=$usedMinutes threshold=$threshold already=$already notify=$shouldNotify")
+                if (shouldNotify) {
+                    NotificationHelper.showUsageExceeded(context, pkg, usedMinutes, threshold)
+                    NotificationModeStore.setThresholdNotified(context, pkg, dateKey, true)
                 }
             }
         }
