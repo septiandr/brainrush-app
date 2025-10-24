@@ -18,6 +18,8 @@ import com.ga.brainrush.alerts.UsageThresholdStore
 import com.ga.brainrush.data.util.UsageStatsHelper
 import ir.ehsannarmani.compose_charts.LineChart
 import ir.ehsannarmani.compose_charts.models.Line
+import com.ga.brainrush.alerts.NotificationSettingsStore
+import com.ga.brainrush.alerts.NotificationHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,6 +53,11 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
     var thresholdText by remember { mutableStateOf(UsageThresholdStore.getThreshold(context, pkg)?.toString() ?: "") }
     var inputError by remember { mutableStateOf<String?>(null) }
     var showDialog by remember { mutableStateOf(false) }
+
+    // Pengaturan template notifikasi
+    var titleTemplate by remember { mutableStateOf(NotificationSettingsStore.getTitleTemplate(context) ?: "Batas penggunaan tercapai") }
+    var messageTemplate by remember { mutableStateOf(NotificationSettingsStore.getMessageTemplate(context) ?: "{appLabel} telah digunakan {minutes} menit (batas: {threshold})") }
+    var saveInfo by remember { mutableStateOf<String?>(null) }
 
     fun lastNDaysAbbrev(n: Int): List<String> {
         val cal = java.util.Calendar.getInstance()
@@ -88,6 +95,46 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Pengaturan Notifikasi (judul & isi)
+            Text("Pengaturan Notifikasi", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            TextField(
+                value = titleTemplate,
+                onValueChange = { titleTemplate = it.take(80) },
+                label = { Text("Judul Notifikasi") },
+                singleLine = true
+            )
+            Spacer(Modifier.height(8.dp))
+            TextField(
+                value = messageTemplate,
+                onValueChange = { messageTemplate = it.take(200) },
+                label = { Text("Isi Notifikasi") }
+            )
+            Spacer(Modifier.height(6.dp))
+            Text("Placeholder: {appLabel}, {packageName}, {minutes}, {threshold}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            val previewText = messageTemplate
+                .replace("{appLabel}", labelFor(pkg))
+                .replace("{packageName}", pkg)
+                .replace("{minutes}", "42")
+                .replace("{threshold}", "60")
+            Text("Preview: $previewText", style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = {
+                    NotificationSettingsStore.setTitleTemplate(context, titleTemplate)
+                    NotificationSettingsStore.setMessageTemplate(context, messageTemplate)
+                    saveInfo = "Tersimpan"
+                }) { Text("Simpan") }
+                OutlinedButton(onClick = { NotificationHelper.showTestNotification(context, pkg) }) { Text("Kirim Notifikasi Tes") }
+            }
+            if (saveInfo != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(saveInfo!!, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
 
             Spacer(Modifier.height(16.dp))
