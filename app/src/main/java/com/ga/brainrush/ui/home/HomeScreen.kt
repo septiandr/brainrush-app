@@ -33,6 +33,7 @@ import com.ga.brainrush.alerts.UsageThresholdStore
 import com.ga.brainrush.alerts.UsageAlertScheduler
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +57,19 @@ fun HomeScreen(onNavigateToDetail: (String) -> Unit, onNavigateToMonitoredList: 
     var dialogPkg by remember { mutableStateOf<String?>(null) }
     var thresholdText by remember { mutableStateOf("") }
     var inputError by remember { mutableStateOf<String?>(null) }
+
+    // Auto-load dan auto-refresh data hari ini tanpa tombol manual
+    LaunchedEffect(Unit) {
+        if (UsageStatsHelper.hasUsagePermission(context)) {
+            while (true) {
+                repo.updateTodayUsage(context)
+                val appUsageMap = UsageStatsHelper.getTodayUsage(context)
+                totalToday = appUsageMap.values.sum().toInt()
+                todayUsage = appUsageMap
+                delay(30000) // refresh tiap 30 detik saat layar Home aktif
+            }
+        }
+    }
 
     // Helper label hari (singkatan) untuk 7 hari terakhir
     fun lastNDaysAbbrev(n: Int): List<String> {
@@ -170,31 +184,7 @@ fun HomeScreen(onNavigateToDetail: (String) -> Unit, onNavigateToMonitoredList: 
                 Spacer(Modifier.height(24.dp))
             }
 
-            // Tombol refresh
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Button(
-                        onClick = {
-                            if (UsageStatsHelper.hasUsagePermission(context)) {
-                                scope.launch {
-                                    repo.updateTodayUsage(context)
-                                    val appUsageMap = UsageStatsHelper.getTodayUsage(context)
-                                    totalToday = appUsageMap.values.sum().toInt()
-                                    todayUsage = appUsageMap
-                                }
-                            } else {
-                                UsageStatsHelper.openUsageSettings(context)
-                            }
-                        }
-                    ) { Text("Refresh Data 🔄") }
-                }
-                Spacer(Modifier.height(24.dp))
-            }
+
 
             // Kartu statistik ringkas
             item {

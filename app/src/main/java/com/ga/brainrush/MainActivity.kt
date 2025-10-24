@@ -10,6 +10,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.ga.brainrush.alerts.NotificationHelper
@@ -61,16 +65,40 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var detailPkg by remember { mutableStateOf<String?>(null) }
-                var showMonitoredList by remember { mutableStateOf(false) }
-                if (showMonitoredList) {
-                    com.ga.brainrush.ui.monitor.MonitoredListScreen(onBack = { showMonitoredList = false })
-                } else if (detailPkg != null) {
-                    DetailScreen(pkg = detailPkg!!, onBack = { detailPkg = null })
-                } else {
-                    HomeScreen(
-                        onNavigateToDetail = { pkg -> detailPkg = pkg },
-                        onNavigateToMonitoredList = { showMonitoredList = true }
-                    )
+                var selectedTab by remember { mutableStateOf(0) }
+                androidx.compose.material3.Scaffold(
+                    bottomBar = {
+                        if (detailPkg == null) {
+                            androidx.compose.material3.Surface {
+                                androidx.compose.foundation.layout.Row(
+                                    modifier = androidx.compose.ui.Modifier
+                                        .fillMaxWidth()
+                                        .padding(8.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    androidx.compose.material3.TextButton(onClick = { selectedTab = 0 }) {
+                                        androidx.compose.material3.Text(if (selectedTab == 0) "Beranda ✓" else "Beranda")
+                                    }
+                                    androidx.compose.material3.TextButton(onClick = { selectedTab = 1 }) {
+                                        androidx.compose.material3.Text(if (selectedTab == 1) "Notifikasi ✓" else "Notifikasi")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ) { _ ->
+                    if (detailPkg != null) {
+                        DetailScreen(pkg = detailPkg!!, onBack = { detailPkg = null })
+                    } else {
+                        if (selectedTab == 0) {
+                            HomeScreen(
+                                onNavigateToDetail = { pkg -> detailPkg = pkg },
+                                onNavigateToMonitoredList = { selectedTab = 1 }
+                            )
+                        } else {
+                            com.ga.brainrush.ui.monitor.MonitoredListScreen(onBack = { selectedTab = 0 })
+                        }
+                    }
                 }
             }
         }

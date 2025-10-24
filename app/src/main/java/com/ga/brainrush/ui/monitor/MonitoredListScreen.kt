@@ -58,6 +58,11 @@ fun MonitoredListScreen(onBack: () -> Unit) {
                 title = { Text("Aplikasi dengan Notifikasi", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Kembali") } }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { onBack() }) {
+                Text("+")
+            }
         }
     ) { padding ->
         if (packages.isEmpty()) {
