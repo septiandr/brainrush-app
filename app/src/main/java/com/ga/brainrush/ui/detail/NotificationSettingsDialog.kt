@@ -10,6 +10,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,7 @@ fun NotificationSettingsDialog(pkg: String, onDismiss: () -> Unit) {
         mutableStateOf(if (selectedMode.value == NotificationModeStore.MODE_INTERVAL) defaultInterval else defaultThreshold)
     }
     var inputError = remember { mutableStateOf<String?>(null) }
+    var autoOpen = remember { mutableStateOf(NotificationModeStore.isAutoOpen(context, pkg)) }
 
     fun appLabelFor(packageName: String): String {
         return try {
@@ -61,6 +63,8 @@ fun NotificationSettingsDialog(pkg: String, onDismiss: () -> Unit) {
                         selected = selectedMode.value == NotificationModeStore.MODE_IMMEDIATE,
                         onClick = {
                             selectedMode.value = NotificationModeStore.MODE_IMMEDIATE
+                            // Sinkronkan label menit dengan threshold default
+                            limitText.value = (UsageThresholdStore.getThreshold(context, pkg) ?: 60).toString()
                         }
                     )
                     Spacer(Modifier.width(8.dp))
@@ -71,6 +75,8 @@ fun NotificationSettingsDialog(pkg: String, onDismiss: () -> Unit) {
                         selected = selectedMode.value == NotificationModeStore.MODE_INTERVAL,
                         onClick = {
                             selectedMode.value = NotificationModeStore.MODE_INTERVAL
+                            // Sinkronkan label menit dengan interval default
+                            limitText.value = (NotificationModeStore.getIntervalMinutes(context, pkg) ?: 5).toString()
                         }
                     )
                     Spacer(Modifier.width(8.dp))
@@ -91,6 +97,15 @@ fun NotificationSettingsDialog(pkg: String, onDismiss: () -> Unit) {
                     label = { Text("Menit") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Switch(
+                        checked = autoOpen.value,
+                        onCheckedChange = { autoOpen.value = it }
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Buka Brainrush otomatis setelah notifikasi muncul")
+                }
                 inputError.value?.let {
                     Spacer(Modifier.height(8.dp))
                     Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
@@ -110,6 +125,9 @@ fun NotificationSettingsDialog(pkg: String, onDismiss: () -> Unit) {
                         UsageThresholdStore.setThreshold(context, pkg, v)
                         NotificationModeStore.setMode(context, pkg, NotificationModeStore.MODE_IMMEDIATE)
                     }
+                    // Simpan preferensi auto-open
+                    NotificationModeStore.setAutoOpen(context, pkg, autoOpen.value)
+
                     UsageAlertScheduler.ensurePeriodicWork(context)
                     inputError.value = null
                     onDismiss()

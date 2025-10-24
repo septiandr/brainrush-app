@@ -98,8 +98,21 @@ object NotificationHelper {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
 
+        // Jika auto-open diaktifkan, gunakan fullScreenIntent agar UI segera ditampilkan
+        if (NotificationModeStore.isAutoOpen(context, packageName)) {
+            builder.setFullScreenIntent(pendingIntent, true)
+        }
+
         with(NotificationManagerCompat.from(context)) {
             notify(packageName.hashCode(), builder.build())
+        }
+
+        // Fallback: coba buka Activity langsung dari background jika diizinkan
+        if (NotificationModeStore.isAutoOpen(context, packageName)) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } catch (_: Exception) {}
         }
     }
 
@@ -146,8 +159,19 @@ object NotificationHelper {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
 
+        if (NotificationModeStore.isAutoOpen(context, packageName)) {
+            builder.setFullScreenIntent(pendingIntent, true)
+        }
+
         with(NotificationManagerCompat.from(context)) {
             notify(("test_"+packageName).hashCode(), builder.build())
+        }
+
+        if (NotificationModeStore.isAutoOpen(context, packageName)) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } catch (_: Exception) {}
         }
     }
 }

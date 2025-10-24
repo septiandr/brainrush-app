@@ -11,6 +11,7 @@ object NotificationModeStore {
     private const val KEY_PREFIX_INTERVAL = "interval_"
     private const val KEY_PREFIX_LAST_MARK = "last_mark_" // last interval mark per day
     private const val KEY_PREFIX_THRESHOLD_NOTIFIED = "threshold_notified_"
+    private const val KEY_PREFIX_AUTO_OPEN = "auto_open_"
 
     const val MODE_IMMEDIATE = "IMMEDIATE"           // Dibatasi langsung: jika melewati batas, setiap buka app, notifikasi muncul
     const val MODE_INTERVAL = "INTERVAL"             // Setiap penggunaan: setiap N menit, notifikasi muncul
@@ -59,6 +60,14 @@ object NotificationModeStore {
         prefs(context).edit().putBoolean(key, value).apply()
     }
 
+    fun setAutoOpen(context: Context, packageName: String, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_PREFIX_AUTO_OPEN + packageName, enabled).apply()
+    }
+
+    fun isAutoOpen(context: Context, packageName: String): Boolean {
+        return prefs(context).getBoolean(KEY_PREFIX_AUTO_OPEN + packageName, false)
+    }
+
     // Tambahan: enumerasi paket dengan mode yang tersimpan
     fun getAllPackages(context: Context): Set<String> {
         return prefs(context).all.keys
@@ -81,6 +90,7 @@ object NotificationModeStore {
             .remove(KEY_PREFIX_INTERVAL + packageName)
             .remove(KEY_PREFIX_LAST_MARK + packageName + "_" + dateKey)
             .remove(KEY_PREFIX_THRESHOLD_NOTIFIED + packageName + "_" + dateKey)
+            .remove(KEY_PREFIX_AUTO_OPEN + packageName)
             .apply()
     }
 }
