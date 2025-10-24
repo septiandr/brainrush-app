@@ -1,9 +1,16 @@
 package com.ga.brainrush
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.ga.brainrush.alerts.NotificationHelper
 import com.ga.brainrush.alerts.UsageAlertScheduler
@@ -21,6 +28,22 @@ class MainActivity : ComponentActivity() {
         UsageAlertScheduler.ensurePeriodicWork(this)
         setContent {
             BrainrushTheme {
+                // Request POST_NOTIFICATIONS on Android 13+
+                val context = LocalContext.current
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val launcher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.RequestPermission()
+                    ) { /* granted -> no-op */ }
+                    LaunchedEffect(Unit) {
+                        val granted = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.POST_NOTIFICATIONS
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (!granted) {
+                            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                }
+
                 var detailPkg by remember { mutableStateOf<String?>(null) }
                 if (detailPkg == null) {
                     HomeScreen(onNavigateToDetail = { pkg -> detailPkg = pkg })
