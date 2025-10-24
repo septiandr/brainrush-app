@@ -201,7 +201,7 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(32.dp))
 
             // Actions: Set Notifikasi (dipindah ke bawah)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -230,7 +230,7 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
                 Button(onClick = { saveInfo = "Tersimpan" }) { Text("Simpan") }
                 OutlinedButton(
                     onClick = { NotificationHelper.showTestNotification(context, pkg) }
-                ) { Text("Kirim Notifikasi Tes") }
+                ) { Text("Test") }
                 OutlinedButton(
                     onClick = {
                         // Hapus pengaturan untuk paket ini
@@ -249,7 +249,7 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
                             context.stopService(Intent(context, UsageMonitorService::class.java))
                         }
                     }
-                ) { Text("Hapus Notifikasi") }
+                ) { Text("Hapus") }
             }
             if (saveInfo != null) {
                 Spacer(Modifier.height(4.dp))

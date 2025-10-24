@@ -27,6 +27,8 @@ import com.ga.brainrush.alerts.NotificationModeStore
 import com.ga.brainrush.alerts.UsageThresholdStore
 import android.content.Intent
 import com.ga.brainrush.alerts.UsageMonitorService
+import com.ga.brainrush.ui.components.AppTopBar
+import com.ga.brainrush.ui.components.BottomTabs
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,36 +69,35 @@ class MainActivity : ComponentActivity() {
                 var detailPkg by remember { mutableStateOf<String?>(null) }
                 var selectedTab by remember { mutableStateOf(0) }
                 androidx.compose.material3.Scaffold(
+                    topBar = {
+                        if (detailPkg != null) {
+                            AppTopBar(
+                                title = "Detail Aplikasi",
+                                onBack = { detailPkg = null }
+                            )
+                        }
+                    },
                     bottomBar = {
                         if (detailPkg == null) {
-                            androidx.compose.material3.Surface {
-                                androidx.compose.foundation.layout.Row(
-                                    modifier = androidx.compose.ui.Modifier
-                                        .fillMaxWidth()
-                                        .padding(8.dp),
-                                    horizontalArrangement = Arrangement.SpaceEvenly
-                                ) {
-                                    androidx.compose.material3.TextButton(onClick = { selectedTab = 0 }) {
-                                        androidx.compose.material3.Text(if (selectedTab == 0) "Beranda ✓" else "Beranda")
-                                    }
-                                    androidx.compose.material3.TextButton(onClick = { selectedTab = 1 }) {
-                                        androidx.compose.material3.Text(if (selectedTab == 1) "Notifikasi ✓" else "Notifikasi")
-                                    }
-                                }
-                            }
+                            BottomTabs(selected = selectedTab, onSelect = { selectedTab = it })
                         }
                     }
-                ) { _ ->
-                    if (detailPkg != null) {
-                        DetailScreen(pkg = detailPkg!!, onBack = { detailPkg = null })
-                    } else {
-                        if (selectedTab == 0) {
-                            HomeScreen(
-                                onNavigateToDetail = { pkg -> detailPkg = pkg },
-                                onNavigateToMonitoredList = { selectedTab = 1 }
-                            )
+                ) { padding ->
+                    androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.padding(padding)) {
+                        if (detailPkg != null) {
+                            DetailScreen(pkg = detailPkg!!, onBack = { detailPkg = null })
                         } else {
-                            com.ga.brainrush.ui.monitor.MonitoredListScreen(onBack = { selectedTab = 0 })
+                            if (selectedTab == 0) {
+                                HomeScreen(
+                                    onNavigateToDetail = { pkg -> detailPkg = pkg },
+                                    onNavigateToMonitoredList = { selectedTab = 1 }
+                                )
+                            } else {
+                                com.ga.brainrush.ui.monitor.MonitoredListScreen(
+                                    onBack = { selectedTab = 0 },
+                                    onNavigateToDetail = { pkg -> detailPkg = pkg }
+                                )
+                            }
                         }
                     }
                 }

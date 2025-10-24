@@ -17,7 +17,7 @@ private val ColorScheme = lightColorScheme(
 fun BrainrushTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = ColorScheme,
-        typography = MaterialTheme.typography,
+        typography = Typography,
         content = content
     )
 }

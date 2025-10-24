@@ -14,10 +14,13 @@ import androidx.compose.ui.unit.dp
 import com.ga.brainrush.alerts.NotificationModeStore
 import com.ga.brainrush.alerts.UsageThresholdStore
 import com.ga.brainrush.alerts.UsageMonitorService
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import com.ga.brainrush.ui.components.AppTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MonitoredListScreen(onBack: () -> Unit) {
+fun MonitoredListScreen(onBack: () -> Unit, onNavigateToDetail: (String) -> Unit) {
     val context = LocalContext.current
 
     fun labelFor(packageName: String): String {
@@ -51,17 +54,32 @@ fun MonitoredListScreen(onBack: () -> Unit) {
             (intervalPkgs + thresholdPkgs).toSet().toList().sorted()
         })
     }
+    var showPicker by remember { mutableStateOf(false) }
+    val pm = context.packageManager
+    val installedPkgs = remember {
+        // Ambil semua aplikasi yang memiliki launcher (ikon di home) agar terlihat oleh aturan package visibility Android 11+
+        val launcherIntent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
+        pm.queryIntentActivities(launcherIntent, 0)
+            .map { it.activityInfo.packageName }
+            .distinct()
+            .filter { pkg ->
+                // Eksklusikan app sistem dan aplikasi sendiri
+                val ai = try { pm.getApplicationInfo(pkg, 0) } catch (_: Exception) { null }
+                ai != null && (ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 && pkg != context.packageName
+            }
+    }
+    val availablePkgs = remember(packages) { installedPkgs.filter { it !in packages }.sortedBy { labelFor(it) } }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Aplikasi dengan Notifikasi", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { TextButton(onClick = onBack) { Text("Kembali") } }
+            AppTopBar(
+                title = "Aplikasi dengan Notifikasi",
+                onBack = onBack
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { onBack() }) {
-                Text("+")
+            FloatingActionButton(onClick = { showPicker = true }) {
+                Icon(Icons.Filled.Add, contentDescription = "Tambah")
             }
         }
     ) { padding ->
@@ -106,15 +124,36 @@ fun MonitoredListScreen(onBack: () -> Unit) {
                                     val hasMonitored = NotificationModeStore.getPackagesByMode(context, NotificationModeStore.MODE_INTERVAL).isNotEmpty() ||
                                         UsageThresholdStore.getAllThresholds(context).isNotEmpty()
                                     if (!hasMonitored) {
-                                        context.stopService(Intent(context, UsageMonitorService::class.java))
+                                        try {
+                                            val intent = Intent(context, UsageMonitorService::class.java)
+                                            context.stopService(intent)
+                                        } catch (_: Exception) {}
                                     }
                                 }) { Text("Hapus") }
                             }
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
                 }
             }
+        }
+        if (showPicker) {
+            AlertDialog(
+                onDismissRequest = { showPicker = false },
+                title = { Text("Pilih aplikasi untuk ditambahkan") },
+                text = {
+                    LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                        items(availablePkgs) { pkg ->
+                            TextButton(onClick = {
+                                showPicker = false
+                                onNavigateToDetail(pkg)
+                            }) { Text(labelFor(pkg)) }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showPicker = false }) { Text("Tutup") }
+                }
+            )
         }
     }
 }
