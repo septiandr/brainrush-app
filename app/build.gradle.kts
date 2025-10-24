@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.compose.charts)
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     // Splash Screen API
     implementation("androidx.core:core-splashscreen:1.0.1")

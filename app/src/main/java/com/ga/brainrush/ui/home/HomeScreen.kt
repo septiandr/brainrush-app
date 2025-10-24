@@ -29,10 +29,14 @@ import androidx.compose.ui.platform.LocalConfiguration
 import ir.ehsannarmani.compose_charts.LineChart
 import ir.ehsannarmani.compose_charts.models.Line
 import java.text.SimpleDateFormat
+import com.ga.brainrush.alerts.UsageThresholdStore
+import com.ga.brainrush.alerts.UsageAlertScheduler
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onNavigateToStats: () -> Unit) {
+fun HomeScreen(onNavigateToDetail: (String) -> Unit) {
     val context = LocalContext.current
     val repo = remember { ScreenTimeRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
@@ -47,6 +51,11 @@ fun HomeScreen(onNavigateToStats: () -> Unit) {
     var chartRange by remember { mutableStateOf(ChartRange.Week) }
     var selectedHourly by remember { mutableStateOf<List<Double>>(emptyList()) }
     var zoomFactor by remember { mutableStateOf(1f) }
+
+    // Tambahan: dialog threshold notifikasi
+    var dialogPkg by remember { mutableStateOf<String?>(null) }
+    var thresholdText by remember { mutableStateOf("") }
+    var inputError by remember { mutableStateOf<String?>(null) }
 
     // Helper label hari (singkatan) untuk 7 hari terakhir
     fun lastNDaysAbbrev(n: Int): List<String> {
@@ -344,7 +353,7 @@ fun HomeScreen(onNavigateToStats: () -> Unit) {
                     Text("Top Apps Hari Ini", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Ketuk aplikasi untuk melihat grafik 7 hari",
+                        "Ketuk aplikasi untuk melihat detail",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -363,14 +372,9 @@ fun HomeScreen(onNavigateToStats: () -> Unit) {
                             .padding(vertical = 6.dp)
                     ) {
                         Row(
-                            modifier = Modifier.clickable {
-                                selectedPkg = pkg
-                                // Ambil data mingguan dan per jam
-                                selectedSeries = UsageStatsHelper.getUsageLastNDays(context, pkg, 7)
-                                selectedHourly = UsageStatsHelper.getUsageTodayHourly(context, pkg)
-                                chartRange = ChartRange.Day // default tampilkan per jam saat dipilih
-                                scope.launch { listState.animateScrollToItem(1.2) }
-                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToDetail(pkg) },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(modifier = Modifier.size(12.dp).background(c, CircleShape))
@@ -389,6 +393,46 @@ fun HomeScreen(onNavigateToStats: () -> Unit) {
                         )
                     }
                 }
+                // Dialog pengaturan threshold notifikasi
+                item {
+                    if (dialogPkg != null) {
+                        AlertDialog(
+                            onDismissRequest = { dialogPkg = null; inputError = null },
+                            title = { Text("Notifikasi penggunaan") },
+                            text = {
+                                Column {
+                                    Text("Set batas menit per hari untuk ${labelFor(dialogPkg!!)}")
+                                    Spacer(Modifier.height(12.dp))
+                                    TextField(
+                                        value = thresholdText,
+                                        onValueChange = { thresholdText = it.filter { ch -> ch.isDigit() }.take(4) },
+                                        label = { Text("Menit per hari") },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                    )
+                                    if (inputError != null) {
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(inputError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    val v = thresholdText.toIntOrNull()
+                                    if (v == null || v <= 0) {
+                                        inputError = "Masukkan menit > 0"
+                                    } else {
+                                        UsageThresholdStore.setThreshold(context, dialogPkg!!, v)
+                                        UsageAlertScheduler.ensurePeriodicWork(context)
+                                        dialogPkg = null
+                                        inputError = null
+                                    }
+                                }) { Text("Simpan") }
+                            },
+                            dismissButton = { TextButton(onClick = { dialogPkg = null; inputError = null }) { Text("Batal") } }
+                        )
+                    }
+                }
+
                 item { Spacer(Modifier.height(12.dp)) }
             }
 
