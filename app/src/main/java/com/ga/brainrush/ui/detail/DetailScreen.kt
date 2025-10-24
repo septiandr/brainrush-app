@@ -17,6 +17,7 @@ import com.ga.brainrush.alerts.NotificationHelper
 import com.ga.brainrush.alerts.NotificationModeStore
 import com.ga.brainrush.alerts.UsageThresholdStore
 import com.ga.brainrush.data.util.UsageStatsHelper
+import com.ga.brainrush.alerts.UsageAlertScheduler
 import ir.ehsannarmani.compose_charts.LineChart
 import ir.ehsannarmani.compose_charts.models.Line
 import android.content.Intent
@@ -227,7 +228,22 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
             Spacer(Modifier.height(16.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { saveInfo = "Tersimpan" }) { Text("Simpan") }
+                Button(onClick = {
+                    // Pastikan WorkManager fallback aktif
+                    UsageAlertScheduler.ensurePeriodicWork(context)
+                    // Mulai Foreground Service segera jika ada paket dimonitor & izin usage tersedia
+                    try {
+                        val hasMonitored = NotificationModeStore.getPackagesByMode(context, NotificationModeStore.MODE_INTERVAL).isNotEmpty() ||
+                                UsageThresholdStore.getAllThresholds(context).isNotEmpty()
+                        if (hasMonitored && UsageStatsHelper.hasUsagePermission(context)) {
+                            ContextCompat.startForegroundService(
+                                context,
+                                Intent(context, UsageMonitorService::class.java)
+                            )
+                        }
+                    } catch (_: Exception) {}
+                    saveInfo = "Tersimpan"
+                }) { Text("Simpan") }
                 OutlinedButton(
                     onClick = { NotificationHelper.showTestNotification(context, pkg) }
                 ) { Text("Test") }

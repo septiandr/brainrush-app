@@ -100,10 +100,10 @@ object NotificationHelper {
         // Tambahkan hitung mundur (chronometer) di notifikasi
         try {
             val remainingMillis = if (mode == NotificationModeStore.MODE_INTERVAL) {
-                // Untuk mode interval, mulai hitung mundur dari interval menit
+                // Mode interval: tampilkan hitung mundur, tetapi JANGAN auto-dismiss
                 (thresholdMinutes * 60_000L)
             } else {
-                // Untuk mode batas harian, hitung mundur sampai tengah malam berikutnya
+                // Mode batas harian: hitung mundur sampai tengah malam berikutnya
                 val cal = java.util.Calendar.getInstance()
                 val now = cal.timeInMillis
                 cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
@@ -123,27 +123,26 @@ object NotificationHelper {
                     builder.setChronometerCountDown(true)
                 } catch (_: Throwable) { /* di beberapa versi compat mungkin tidak tersedia */ }
             }
-            // Agar timer terlihat di sebagian besar perangkat, jadikan ongoing dan auto-dismiss saat selesai
-            builder.setOngoing(true)
             builder.setOnlyAlertOnce(true)
-            builder.setTimeoutAfter(remainingMillis)
+            if (mode == NotificationModeStore.MODE_INTERVAL) {
+                // Tahan notifikasi (ongoing) tanpa auto-dismiss agar tidak hilang sendiri
+                builder.setOngoing(true)
+                // JANGAN panggil setTimeoutAfter untuk mode interval
+            } else {
+                // Mode harian: biarkan auto-dismiss saat pergantian hari
+                builder.setOngoing(true)
+                builder.setTimeoutAfter(remainingMillis)
+            }
         } catch (_: Exception) {}
-        // Jika auto-open diaktifkan, gunakan fullScreenIntent agar UI segera ditampilkan
-        if (NotificationModeStore.isAutoOpen(context, packageName)) {
+        // Hanya gunakan fullScreenIntent untuk mode harian bila auto-open diaktifkan
+        if (NotificationModeStore.isAutoOpen(context, packageName) && mode == NotificationModeStore.MODE_IMMEDIATE) {
             builder.setFullScreenIntent(pendingIntent, true)
         }
 
         with(NotificationManagerCompat.from(context)) {
             notify(packageName.hashCode(), builder.build())
         }
-
-        // Fallback: coba buka Activity langsung dari background jika diizinkan
-        if (NotificationModeStore.isAutoOpen(context, packageName)) {
-            try {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-            } catch (_: Exception) {}
-        }
+        // Hapus fallback startActivity langsung agar tidak memaksa membuka aplikasi
     }
 
     fun showTestNotification(context: Context, packageName: String) {
@@ -189,19 +188,13 @@ object NotificationHelper {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
 
-        if (NotificationModeStore.isAutoOpen(context, packageName)) {
+        if (NotificationModeStore.isAutoOpen(context, packageName) && mode == NotificationModeStore.MODE_IMMEDIATE) {
             builder.setFullScreenIntent(pendingIntent, true)
         }
 
         with(NotificationManagerCompat.from(context)) {
             notify(("test_"+packageName).hashCode(), builder.build())
         }
-
-        if (NotificationModeStore.isAutoOpen(context, packageName)) {
-            try {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-            } catch (_: Exception) {}
-        }
+        // Tanpa fallback startActivity langsung
     }
 }

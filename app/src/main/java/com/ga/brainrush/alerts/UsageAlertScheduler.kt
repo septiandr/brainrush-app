@@ -18,4 +18,8 @@ object UsageAlertScheduler {
             request
         )
     }
+
+    fun cancelPeriodicWork(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
+    }
 }

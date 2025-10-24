@@ -35,6 +35,9 @@ import com.ga.brainrush.alerts.UsageAlertScheduler
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import kotlinx.coroutines.delay
+import android.widget.Toast
+import android.content.Intent
+import com.ga.brainrush.alerts.UsageMonitorService
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,42 +93,6 @@ fun HomeScreen(onNavigateToDetail: (String) -> Unit, onNavigateToMonitoredList: 
         }
         return labels
     }
-    fun isTikTok(pkg: String) =
-            pkg.contains("tiktok", true) ||
-                    pkg.contains("com.zhiliaoapp.musically", true) ||
-                    pkg.contains("com.ss.android.ugc.trill", true) ||
-                    pkg.contains("com.zhiliaoapp.musically.go", true)
-    fun isInstagram(pkg: String) =
-            pkg.contains("instagram", true) || pkg.contains("com.instagram.android", true)
-    fun isYouTube(pkg: String) =
-            pkg.contains("youtube", true) || pkg.contains("com.google.android.youtube", true)
-    fun isFacebook(pkg: String) =
-            pkg.contains("facebook", true) ||
-                    pkg.contains("com.facebook.katana", true) ||
-                    pkg.contains("com.facebook.lite", true)
-    fun isTwitterX(pkg: String) =
-            pkg.contains("twitter", true) ||
-                    pkg.contains("com.twitter.android", true) ||
-                    pkg.contains("x", true)
-    @Composable
-    fun colorFor(pkg: String) =
-            when {
-                isTikTok(pkg) -> Color(0xFF8E44AD)
-                isInstagram(pkg) -> Color(0xFFFF7043)
-                isYouTube(pkg) -> Color(0xFFEF5350)
-                isFacebook(pkg) -> Color(0xFF1E88E5)
-                isTwitterX(pkg) -> Color(0xFF333333)
-                else -> MaterialTheme.colorScheme.tertiary
-            }
-    fun labelFor(pkg: String) =
-            when {
-                isTikTok(pkg) -> "TikTok"
-                isInstagram(pkg) -> "Instagram"
-                isYouTube(pkg) -> "YouTube"
-                isFacebook(pkg) -> "Facebook"
-                isTwitterX(pkg) -> "Twitter/X"
-                else -> pkg.substringAfterLast('.')
-            }
 
     Scaffold(
             topBar = {
@@ -133,6 +100,13 @@ fun HomeScreen(onNavigateToDetail: (String) -> Unit, onNavigateToMonitoredList: 
                     title = { Text("✨ Brainrush", fontWeight = FontWeight.Bold) },
                     actions = {
                         TextButton(onClick = onNavigateToMonitoredList) { Text("Notifikasi Apps") }
+                        TextButton(onClick = {
+                            try {
+                                UsageAlertScheduler.cancelPeriodicWork(context)
+                                context.stopService(Intent(context, UsageMonitorService::class.java))
+                                Toast.makeText(context, "Brainrush dihentikan di latar belakang", Toast.LENGTH_SHORT).show()
+                            } catch (_: Exception) {}
+                        }) { Text("Stop") }
                     }
                 )
             }
@@ -223,33 +197,31 @@ fun HomeScreen(onNavigateToDetail: (String) -> Unit, onNavigateToMonitoredList: 
                             Text("Rata-rata 7 hari", style = MaterialTheme.typography.titleSmall)
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                "$avg7 menit/hari",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
+                                "${avg7}m",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
                             )
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(8.dp))
                             Text(
-                                if (trendWeek >= 0) "+${"%.1f".format(trendWeek)}% vs rata-rata"
-                                else "${"%.1f".format(trendWeek)}% vs rata-rata",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (trendWeek >= 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                "Terakhir: ${latestRecorded}m",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-
                     ElevatedCard(modifier = Modifier.weight(1f).fillMaxHeight()) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("Hari terbaik", style = MaterialTheme.typography.titleSmall)
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                if (bestDayIdx != null) "$bestDayMinutes menit" else "-",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
+                                "${bestDayMinutes}m",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
                             )
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(8.dp))
                             Text(
-                                bestDayDate ?: "Belum ada data",
-                                style = MaterialTheme.typography.labelMedium,
+                                bestDayDate ?: "—",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -469,3 +441,40 @@ fun HomeScreen(onNavigateToDetail: (String) -> Unit, onNavigateToMonitoredList: 
 
 // Tambahan: enum di level file untuk mode chart
 enum class ChartRange { Day, Week }
+
+fun isTikTok(pkg: String) =
+    pkg.contains("tiktok", true) ||
+    pkg.contains("com.zhiliaoapp.musically", true) ||
+    pkg.contains("com.ss.android.ugc.trill", true) ||
+    pkg.contains("com.zhiliaoapp.musically.go", true)
+fun isInstagram(pkg: String) =
+    pkg.contains("instagram", true) || pkg.contains("com.instagram.android", true)
+fun isYouTube(pkg: String) =
+    pkg.contains("youtube", true) || pkg.contains("com.google.android.youtube", true)
+fun isFacebook(pkg: String) =
+    pkg.contains("facebook", true) ||
+    pkg.contains("com.facebook.katana", true) ||
+    pkg.contains("com.facebook.lite", true)
+fun isTwitterX(pkg: String) =
+    pkg.contains("twitter", true) || pkg.contains("com.twitter.android", true) || pkg.contains("x", true)
+
+@Composable
+fun colorFor(pkg: String) =
+    when {
+        isTikTok(pkg) -> Color(0xFF8E44AD)
+        isInstagram(pkg) -> Color(0xFFFF7043)
+        isYouTube(pkg) -> Color(0xFFEF5350)
+        isFacebook(pkg) -> Color(0xFF1E88E5)
+        isTwitterX(pkg) -> Color(0xFF333333)
+        else -> MaterialTheme.colorScheme.tertiary
+    }
+
+fun labelFor(pkg: String) =
+    when {
+        isTikTok(pkg) -> "TikTok"
+        isInstagram(pkg) -> "Instagram"
+        isYouTube(pkg) -> "YouTube"
+        isFacebook(pkg) -> "Facebook"
+        isTwitterX(pkg) -> "Twitter/X"
+        else -> pkg.substringAfterLast('.')
+    }
