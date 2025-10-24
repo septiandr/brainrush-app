@@ -36,7 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onNavigateToDetail: (String) -> Unit) {
+fun HomeScreen(onNavigateToDetail: (String) -> Unit, onNavigateToMonitoredList: () -> Unit) {
     val context = LocalContext.current
     val repo = remember { ScreenTimeRepository.getInstance(context) }
     val scope = rememberCoroutineScope()
@@ -113,7 +113,14 @@ fun HomeScreen(onNavigateToDetail: (String) -> Unit) {
             }
 
     Scaffold(
-            topBar = { TopAppBar(title = { Text("✨ Brainrush", fontWeight = FontWeight.Bold) }) }
+            topBar = {
+                TopAppBar(
+                    title = { Text("✨ Brainrush", fontWeight = FontWeight.Bold) },
+                    actions = {
+                        TextButton(onClick = onNavigateToMonitoredList) { Text("Notifikasi Apps") }
+                    }
+                )
+            }
     ) { padding ->
         LazyColumn(
                 modifier = Modifier

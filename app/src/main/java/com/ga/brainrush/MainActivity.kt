@@ -61,10 +61,16 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var detailPkg by remember { mutableStateOf<String?>(null) }
-                if (detailPkg == null) {
-                    HomeScreen(onNavigateToDetail = { pkg -> detailPkg = pkg })
-                } else {
+                var showMonitoredList by remember { mutableStateOf(false) }
+                if (showMonitoredList) {
+                    com.ga.brainrush.ui.monitor.MonitoredListScreen(onBack = { showMonitoredList = false })
+                } else if (detailPkg != null) {
                     DetailScreen(pkg = detailPkg!!, onBack = { detailPkg = null })
+                } else {
+                    HomeScreen(
+                        onNavigateToDetail = { pkg -> detailPkg = pkg },
+                        onNavigateToMonitoredList = { showMonitoredList = true }
+                    )
                 }
             }
         }
