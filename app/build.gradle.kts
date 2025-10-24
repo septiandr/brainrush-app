@@ -59,6 +59,9 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.compose.charts)
 
+    // Splash Screen API
+    implementation("androidx.core:core-splashscreen:1.0.1")
+
     // Room with KSP
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
