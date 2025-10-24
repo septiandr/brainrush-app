@@ -24,6 +24,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import ir.ehsannarmani.compose_charts.LineChart
 import ir.ehsannarmani.compose_charts.models.Line
 import java.text.SimpleDateFormat
@@ -41,16 +43,29 @@ fun HomeScreen(onNavigateToStats: () -> Unit) {
     var selectedPkg by remember { mutableStateOf<String?>(null) }
     var selectedSeries by remember { mutableStateOf<List<Double>>(emptyList()) }
     val listState = rememberLazyListState()
+    // Tambahan: state untuk mode chart, data per jam, dan zoom
+    var chartRange by remember { mutableStateOf(ChartRange.Week) }
+    var selectedHourly by remember { mutableStateOf<List<Double>>(emptyList()) }
+    var zoomFactor by remember { mutableStateOf(1f) }
 
-    LaunchedEffect(Unit) {
-        if (UsageStatsHelper.hasUsagePermission(context)) {
-            val appUsageMap = UsageStatsHelper.getTodayUsage(context)
-            totalToday = appUsageMap.values.sum().toInt()
-            todayUsage = appUsageMap
+    // Helper label hari (singkatan) untuk 7 hari terakhir
+    fun lastNDaysAbbrev(n: Int): List<String> {
+        val sdf = java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault())
+        val calStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+            add(java.util.Calendar.DAY_OF_YEAR, -(n - 1))
         }
+        val tmp = calStart.clone() as java.util.Calendar
+        val labels = mutableListOf<String>()
+        repeat(n) {
+            labels += sdf.format(java.util.Date(tmp.timeInMillis))
+            tmp.add(java.util.Calendar.DAY_OF_YEAR, 1)
+        }
+        return labels
     }
-
-    // Helpers brand dan label untuk top apps
     fun isTikTok(pkg: String) =
             pkg.contains("tiktok", true) ||
                     pkg.contains("com.zhiliaoapp.musically", true) ||
@@ -237,26 +252,87 @@ fun HomeScreen(onNavigateToStats: () -> Unit) {
             }
             // Chart di bagian atas
             item {
-                if (selectedPkg != null && selectedSeries.isNotEmpty()) {
+                if (selectedPkg != null && (selectedSeries.isNotEmpty() || selectedHourly.isNotEmpty())) {
                     ElevatedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                "Riwayat 7 hari: ${labelFor(selectedPkg!!)}",
+                                if (chartRange == ChartRange.Day)
+                                    "Distribusi per jam (hari ini): ${labelFor(selectedPkg!!)}"
+                                else
+                                    "Riwayat 7 hari: ${labelFor(selectedPkg!!)}",
                                 style = MaterialTheme.typography.titleSmall
                             )
                             Spacer(Modifier.height(8.dp))
-                            LineChart(
+                            // Toggle Hari/Minggu
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilterChip(
+                                    selected = chartRange == ChartRange.Day,
+                                    onClick = { chartRange = ChartRange.Day },
+                                    label = { Text("Hari") }
+                                )
+                                FilterChip(
+                                    selected = chartRange == ChartRange.Week,
+                                    onClick = { chartRange = ChartRange.Week },
+                                    label = { Text("Minggu") }
+                                )
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            // Kontrol Zoom
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Zoom", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(8.dp))
+                                Slider(
+                                    value = zoomFactor,
+                                    onValueChange = { zoomFactor = it.coerceIn(1f, 3f) },
+                                    valueRange = 1f..3f
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("x${String.format(java.util.Locale.getDefault(), "%.1f", zoomFactor)}", style = MaterialTheme.typography.labelSmall)
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            // Chart, bisa di-scroll horizontal saat di-zoom
+                            val screenWidth = LocalConfiguration.current.screenWidthDp
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(220.dp),
-                                data = listOf(
-                                    Line(
-                                        label = labelFor(selectedPkg!!),
-                                        values = selectedSeries,
-                                        color = SolidColor(Color(0xFF23af92))
+                                    .horizontalScroll(rememberScrollState())
+                            ) {
+                                LineChart(
+                                    modifier = Modifier
+                                        .width((screenWidth * zoomFactor).dp)
+                                        .height(220.dp),
+                                    data = listOf(
+                                        Line(
+                                            label = labelFor(selectedPkg!!),
+                                            values = if (chartRange == ChartRange.Day) selectedHourly else selectedSeries,
+                                            color = SolidColor(Color(0xFF23af92))
+                                        )
                                     )
                                 )
-                            )
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            // Label sumbu-X
+                            if (chartRange == ChartRange.Day) {
+                                val ticks = listOf("0","3","6","9","12","15","18","21")
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    ticks.forEach { t ->
+                                        Text(t, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            } else {
+                                val labels = lastNDaysAbbrev(7)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    labels.forEach { d ->
+                                        Text(d, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                            }
                         }
                     }
                     Spacer(Modifier.height(16.dp))
@@ -289,7 +365,10 @@ fun HomeScreen(onNavigateToStats: () -> Unit) {
                         Row(
                             modifier = Modifier.clickable {
                                 selectedPkg = pkg
+                                // Ambil data mingguan dan per jam
                                 selectedSeries = UsageStatsHelper.getUsageLastNDays(context, pkg, 7)
+                                selectedHourly = UsageStatsHelper.getUsageTodayHourly(context, pkg)
+                                chartRange = ChartRange.Day // default tampilkan per jam saat dipilih
                                 scope.launch { listState.animateScrollToItem(1) }
                             },
                             verticalAlignment = Alignment.CenterVertically
@@ -333,3 +412,6 @@ fun HomeScreen(onNavigateToStats: () -> Unit) {
         }
     }
 }
+
+// Tambahan: enum di level file untuk mode chart
+enum class ChartRange { Day, Week }

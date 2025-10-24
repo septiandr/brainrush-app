@@ -121,4 +121,71 @@ object UsageStatsHelper {
         // Return values in chronological order
         return dayOrder.map { dayMinutes[it] ?: 0.0 }
     }
+
+    // Tambahan: penggunaan per jam untuk hari ini
+    // Menghasilkan list 24 elemen (menit per jam), dari jam 0 hingga 23.
+    fun getUsageTodayHourly(context: Context, pkg: String): List<Double> {
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val startCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val start = startCal.timeInMillis
+        val end = System.currentTimeMillis()
+
+        val hourly = DoubleArray(24) { 0.0 }
+
+        // Gunakan UsageEvents untuk hitung durasi per app di foreground
+        val events = usageStatsManager.queryEvents(start, end)
+        val event = android.app.usage.UsageEvents.Event()
+        var lastForegroundStart: Long? = null
+
+        fun addDurationToBuckets(rangeStart: Long, rangeEnd: Long) {
+            var cur = rangeStart.coerceAtLeast(start)
+            val stop = rangeEnd.coerceAtMost(end)
+            while (cur < stop) {
+                val cal = Calendar.getInstance().apply { timeInMillis = cur }
+                val hour = cal.get(Calendar.HOUR_OF_DAY)
+                // Awal jam berikutnya
+                val nextHourStart = (cal.clone() as Calendar).apply {
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                    add(Calendar.HOUR_OF_DAY, 1)
+                }.timeInMillis
+                val sliceEnd = minOf(stop, nextHourStart)
+                val minutes = (sliceEnd - cur) / 60000.0
+                hourly[hour] += minutes
+                cur = sliceEnd
+            }
+        }
+
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            if (event.packageName != pkg) continue
+            when (event.eventType) {
+                // Dukungan event tipe lama & baru
+                android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND,
+                android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED -> {
+                    lastForegroundStart = event.timeStamp.coerceAtLeast(start)
+                }
+                android.app.usage.UsageEvents.Event.MOVE_TO_BACKGROUND,
+                android.app.usage.UsageEvents.Event.ACTIVITY_PAUSED -> {
+                    val s = lastForegroundStart ?: continue
+                    val e = event.timeStamp
+                    if (e > s) addDurationToBuckets(s, e)
+                    lastForegroundStart = null
+                }
+            }
+        }
+        // Jika masih foreground hingga sekarang, tambahkan sisanya
+        val ongoing = lastForegroundStart
+        if (ongoing != null && end > ongoing) {
+            addDurationToBuckets(ongoing, end)
+        }
+
+        return hourly.toList()
+    }
 }
