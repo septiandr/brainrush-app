@@ -3,6 +3,7 @@ package com.ga.brainrush.ui.detail
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -81,64 +82,11 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp)) {
+        Column(modifier = Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState())) {
             Text(pkg, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
 
-            // Actions
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = { showDialog = true }) { Text("Set Notifikasi") }
-                Spacer(Modifier.width(12.dp))
-                val current = UsageThresholdStore.getThreshold(context, pkg)
-                Text(
-                    if (current != null) "Batas: ${current}m/hari" else "Belum ada batas",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Pengaturan Notifikasi (judul & isi)
-            Text("Pengaturan Notifikasi", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            TextField(
-                value = titleTemplate,
-                onValueChange = { titleTemplate = it.take(80) },
-                label = { Text("Judul Notifikasi") },
-                singleLine = true
-            )
-            Spacer(Modifier.height(8.dp))
-            TextField(
-                value = messageTemplate,
-                onValueChange = { messageTemplate = it.take(200) },
-                label = { Text("Isi Notifikasi") }
-            )
-            Spacer(Modifier.height(6.dp))
-            Text("Placeholder: {appLabel}, {packageName}, {minutes}, {threshold}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(6.dp))
-            val previewText = messageTemplate
-                .replace("{appLabel}", labelFor(pkg))
-                .replace("{packageName}", pkg)
-                .replace("{minutes}", "42")
-                .replace("{threshold}", "60")
-            Text("Preview: $previewText", style = MaterialTheme.typography.labelSmall)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = {
-                    NotificationSettingsStore.setTitleTemplate(context, titleTemplate)
-                    NotificationSettingsStore.setMessageTemplate(context, messageTemplate)
-                    saveInfo = "Tersimpan"
-                }) { Text("Simpan") }
-                OutlinedButton(onClick = { NotificationHelper.showTestNotification(context, pkg) }) { Text("Kirim Notifikasi Tes") }
-            }
-            if (saveInfo != null) {
-                Spacer(Modifier.height(4.dp))
-                Text(saveInfo!!, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-            }
-
-            Spacer(Modifier.height(16.dp))
-            // Toggle Hari/Minggu
+            // Toggle Hari/Minggu (di atas grafik)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = chartRange == ChartRange.Day,
@@ -167,7 +115,7 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
             }
             Spacer(Modifier.height(8.dp))
 
-            // Chart
+            // Grafik di atas
             val screenWidth = LocalConfiguration.current.screenWidthDp
             Box(
                 modifier = Modifier
@@ -209,6 +157,60 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
                         Text(d, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Actions: Set Notifikasi (dipindah ke bawah)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Button(onClick = { showDialog = true }) { Text("Set Notifikasi") }
+                Spacer(Modifier.width(12.dp))
+                val current = UsageThresholdStore.getThreshold(context, pkg)
+                Text(
+                    if (current != null) "Batas: ${current}m/hari" else "Belum ada batas",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Pengaturan Notifikasi (judul & isi) di bagian bawah
+            Text("Pengaturan Notifikasi", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            TextField(
+                value = titleTemplate,
+                onValueChange = { titleTemplate = it.take(80) },
+                label = { Text("Judul Notifikasi") },
+                singleLine = true
+            )
+            Spacer(Modifier.height(8.dp))
+            TextField(
+                value = messageTemplate,
+                onValueChange = { messageTemplate = it.take(200) },
+                label = { Text("Isi Notifikasi") }
+            )
+            Spacer(Modifier.height(6.dp))
+            Text("Placeholder: {appLabel}, {packageName}, {minutes}, {threshold}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            val previewText = messageTemplate
+                .replace("{appLabel}", labelFor(pkg))
+                .replace("{packageName}", pkg)
+                .replace("{minutes}", "42")
+                .replace("{threshold}", "60")
+            Text("Preview: $previewText", style = MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = {
+                    NotificationSettingsStore.setTitleTemplate(context, titleTemplate)
+                    NotificationSettingsStore.setMessageTemplate(context, messageTemplate)
+                    saveInfo = "Tersimpan"
+                }) { Text("Simpan") }
+                OutlinedButton(onClick = { NotificationHelper.showTestNotification(context, pkg) }) { Text("Kirim Notifikasi Tes") }
+            }
+            if (saveInfo != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(saveInfo!!, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
         }
 
