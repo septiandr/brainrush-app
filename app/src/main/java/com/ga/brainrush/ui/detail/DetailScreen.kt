@@ -1,8 +1,8 @@
 package com.ga.brainrush.ui.detail
 
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,15 +12,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.ga.brainrush.alerts.UsageAlertScheduler
+import com.ga.brainrush.alerts.NotificationHelper
+import com.ga.brainrush.alerts.NotificationModeStore
 import com.ga.brainrush.alerts.UsageThresholdStore
 import com.ga.brainrush.data.util.UsageStatsHelper
 import ir.ehsannarmani.compose_charts.LineChart
 import ir.ehsannarmani.compose_charts.models.Line
-import com.ga.brainrush.alerts.NotificationSettingsStore
-import com.ga.brainrush.alerts.NotificationHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +36,18 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
         }
     }
 
+    // Tampilkan mode notifikasi terpilih sebagai teks ringkas
+    fun modeText(): String {
+        val mode =
+                NotificationModeStore.getMode(context, pkg) ?: NotificationModeStore.MODE_IMMEDIATE
+        return if (mode == NotificationModeStore.MODE_INTERVAL) {
+            val minutes = NotificationModeStore.getIntervalMinutes(context, pkg) ?: 5
+            "Mode: Setiap penggunaan (${minutes}m)"
+        } else {
+            "Mode: Dibatasi langsung"
+        }
+    }
+
     var chartRange by remember { mutableStateOf(ChartRange.Day) }
     var zoomFactor by remember { mutableStateOf(1f) }
     var seriesWeek by remember { mutableStateOf<List<Double>>(emptyList()) }
@@ -51,14 +61,22 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
     }
 
     // Notification dialog state
-    var thresholdText by remember { mutableStateOf(UsageThresholdStore.getThreshold(context, pkg)?.toString() ?: "") }
+    var thresholdText by remember {
+        mutableStateOf(UsageThresholdStore.getThreshold(context, pkg)?.toString() ?: "")
+    }
     var inputError by remember { mutableStateOf<String?>(null) }
     var showDialog by remember { mutableStateOf(false) }
-
-    // Pengaturan template notifikasi
-    var titleTemplate by remember { mutableStateOf(NotificationSettingsStore.getTitleTemplate(context) ?: "Batas penggunaan tercapai") }
-    var messageTemplate by remember { mutableStateOf(NotificationSettingsStore.getMessageTemplate(context) ?: "{appLabel} telah digunakan {minutes} menit (batas: {threshold})") }
     var saveInfo by remember { mutableStateOf<String?>(null) }
+
+    // Mode notifikasi & interval
+    var selectedMode by remember {
+        mutableStateOf(
+                NotificationModeStore.getMode(context, pkg) ?: NotificationModeStore.MODE_IMMEDIATE
+        )
+    }
+    var intervalText by remember {
+        mutableStateOf((NotificationModeStore.getIntervalMinutes(context, pkg) ?: 5).toString())
+    }
 
     fun lastNDaysAbbrev(n: Int): List<String> {
         val cal = java.util.Calendar.getInstance()
@@ -73,88 +91,108 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(labelFor(pkg)) },
-                navigationIcon = {
-                    TextButton(onClick = onBack) { Text("Kembali") }
-                }
-            )
-        }
+            topBar = {
+                TopAppBar(
+                        title = { Text(labelFor(pkg)) },
+                        navigationIcon = { TextButton(onClick = onBack) { Text("Kembali") } }
+                )
+            }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState())) {
-            Text(pkg, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(
+                modifier =
+                        Modifier.padding(padding)
+                                .padding(16.dp)
+                                .verticalScroll(rememberScrollState())
+        ) {
+            Text(
+                    pkg,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(Modifier.height(12.dp))
 
             // Toggle Hari/Minggu (di atas grafik)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
-                    selected = chartRange == ChartRange.Day,
-                    onClick = { chartRange = ChartRange.Day },
-                    label = { Text("Hari") }
+                        selected = chartRange == ChartRange.Day,
+                        onClick = { chartRange = ChartRange.Day },
+                        label = { Text("Hari") }
                 )
                 FilterChip(
-                    selected = chartRange == ChartRange.Week,
-                    onClick = { chartRange = ChartRange.Week },
-                    label = { Text("Minggu") }
+                        selected = chartRange == ChartRange.Week,
+                        onClick = { chartRange = ChartRange.Week },
+                        label = { Text("Minggu") }
                 )
             }
             Spacer(Modifier.height(8.dp))
 
             // Kontrol Zoom
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Zoom", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(8.dp))
-                Slider(
-                    value = zoomFactor,
-                    onValueChange = { zoomFactor = it.coerceIn(1f, 3f) },
-                    valueRange = 1f..3f
+                Text(
+                        "Zoom",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("x${String.format(java.util.Locale.getDefault(), "%.1f", zoomFactor)}", style = MaterialTheme.typography.labelSmall)
+                Slider(
+                        value = zoomFactor,
+                        onValueChange = { zoomFactor = it.coerceIn(1f, 3f) },
+                        valueRange = 1f..3f
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                        "x${String.format(java.util.Locale.getDefault(), "%.1f", zoomFactor)}",
+                        style = MaterialTheme.typography.labelSmall
+                )
             }
             Spacer(Modifier.height(8.dp))
 
             // Grafik di atas
             val screenWidth = LocalConfiguration.current.screenWidthDp
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
                 LineChart(
-                    modifier = Modifier
-                        .width((screenWidth * zoomFactor).dp)
-                        .height(220.dp),
-                    data = listOf(
-                        Line(
-                            label = labelFor(pkg),
-                            values = if (chartRange == ChartRange.Day) seriesHourly else seriesWeek,
-                            color = SolidColor(Color(0xFF23af92))
-                        )
-                    )
+                        modifier = Modifier.width((screenWidth * zoomFactor).dp).height(220.dp),
+                        data =
+                                listOf(
+                                        Line(
+                                                label = labelFor(pkg),
+                                                values =
+                                                        if (chartRange == ChartRange.Day)
+                                                                seriesHourly
+                                                        else seriesWeek,
+                                                color = SolidColor(Color(0xFF23af92))
+                                        )
+                                )
                 )
             }
             Spacer(Modifier.height(10.dp))
             // Label sumbu-X
             if (chartRange == ChartRange.Day) {
-                val ticks = listOf("0","3","6","9","12","15","18","21")
+                val ticks = listOf("0", "3", "6", "9", "12", "15", "18", "21")
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     ticks.forEach { t ->
-                        Text(t, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                                t,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             } else {
                 val labels = lastNDaysAbbrev(7)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     labels.forEach { d ->
-                        Text(d, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                                d,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -162,96 +200,58 @@ fun DetailScreen(pkg: String, onBack: () -> Unit) {
             Spacer(Modifier.height(16.dp))
 
             // Actions: Set Notifikasi (dipindah ke bawah)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = { showDialog = true }) { Text("Set Notifikasi") }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(onClick = { showDialog = true }) { Text("Set Notifikasi") }
+                    Spacer(Modifier.width(12.dp))
+                    val current = UsageThresholdStore.getThreshold(context, pkg)
+                    Text(
+                            if (current != null) "Batas: ${current}menit" else "Belum ada batas",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(12.dp))
+                }
                 Spacer(Modifier.width(12.dp))
-                val current = UsageThresholdStore.getThreshold(context, pkg)
                 Text(
-                    if (current != null) "Batas: ${current}m/hari" else "Belum ada batas",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                        modeText(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // Pengaturan Notifikasi (judul & isi) di bagian bawah
-            Text("Pengaturan Notifikasi", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            TextField(
-                value = titleTemplate,
-                onValueChange = { titleTemplate = it.take(80) },
-                label = { Text("Judul Notifikasi") },
-                singleLine = true
-            )
-            Spacer(Modifier.height(8.dp))
-            TextField(
-                value = messageTemplate,
-                onValueChange = { messageTemplate = it.take(200) },
-                label = { Text("Isi Notifikasi") }
-            )
-            Spacer(Modifier.height(6.dp))
-            Text("Placeholder: {appLabel}, {packageName}, {minutes}, {threshold}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(6.dp))
-            val previewText = messageTemplate
-                .replace("{appLabel}", labelFor(pkg))
-                .replace("{packageName}", pkg)
-                .replace("{minutes}", "42")
-                .replace("{threshold}", "60")
-            Text("Preview: $previewText", style = MaterialTheme.typography.labelSmall)
-            Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = {
-                    NotificationSettingsStore.setTitleTemplate(context, titleTemplate)
-                    NotificationSettingsStore.setMessageTemplate(context, messageTemplate)
-                    saveInfo = "Tersimpan"
-                }) { Text("Simpan") }
-                OutlinedButton(onClick = { NotificationHelper.showTestNotification(context, pkg) }) { Text("Kirim Notifikasi Tes") }
+                Button(onClick = { saveInfo = "Tersimpan" }) { Text("Simpan") }
+                OutlinedButton(
+                        onClick = { NotificationHelper.showTestNotification(context, pkg) }
+                ) { Text("Kirim Notifikasi Tes") }
             }
             if (saveInfo != null) {
                 Spacer(Modifier.height(4.dp))
-                Text(saveInfo!!, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(
+                        saveInfo!!,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                )
             }
         }
 
         if (showDialog) {
-            AlertDialog(
-                onDismissRequest = { showDialog = false; inputError = null },
-                title = { Text("Notifikasi penggunaan") },
-                text = {
-                    Column {
-                        Text("Set batas menit per hari untuk ${labelFor(pkg)}")
-                        Spacer(Modifier.height(12.dp))
-                        TextField(
-                            value = thresholdText,
-                            onValueChange = { thresholdText = it.filter { ch -> ch.isDigit() }.take(4) },
-                            label = { Text("Menit per hari") },
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                        )
-                        if (inputError != null) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(inputError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                        }
+            NotificationSettingsDialog(
+                    pkg = pkg,
+                    onDismiss = {
+                        showDialog = false
+                        inputError = null
                     }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val v = thresholdText.toIntOrNull()
-                        if (v == null || v <= 0) {
-                            inputError = "Masukkan menit > 0"
-                        } else {
-                            UsageThresholdStore.setThreshold(context, pkg, v)
-                            UsageAlertScheduler.ensurePeriodicWork(context)
-                            showDialog = false
-                            inputError = null
-                        }
-                    }) { Text("Simpan") }
-                },
-                dismissButton = { TextButton(onClick = { showDialog = false; inputError = null }) { Text("Batal") } }
             )
         }
     }
 }
 
 // Reuse enum
-enum class ChartRange { Day, Week }
+enum class ChartRange {
+    Day,
+    Week
+}

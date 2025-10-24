@@ -17,6 +17,8 @@ import com.ga.brainrush.alerts.UsageAlertScheduler
 import com.ga.brainrush.ui.detail.DetailScreen
 import com.ga.brainrush.ui.home.HomeScreen
 import com.ga.brainrush.ui.theme.BrainrushTheme
+import com.ga.brainrush.alerts.NotificationOpenHelper
+import com.ga.brainrush.data.util.UsageStatsHelper
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,6 +28,10 @@ class MainActivity : ComponentActivity() {
         // Inisialisasi channel notifikasi & scheduler periodic usage check
         NotificationHelper.createChannels(this)
         UsageAlertScheduler.ensurePeriodicWork(this)
+        // Trigger notifikasi saat aplikasi dibuka sesuai mode
+        if (UsageStatsHelper.hasUsagePermission(this)) {
+            NotificationOpenHelper.notifyOnAppOpen(this)
+        }
         setContent {
             BrainrushTheme {
                 // Request POST_NOTIFICATIONS on Android 13+

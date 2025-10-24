@@ -45,17 +45,18 @@ object NotificationHelper {
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
         val pendingIntent = PendingIntent.getActivity(context, 0, intent, flags)
 
-        val titleTemplate = NotificationSettingsStore.getTitleTemplate(context) ?: "Batas penggunaan tercapai"
-        fun fill(t: String): String {
-            return t
-                .replace("{appLabel}", appLabel)
-                .replace("{packageName}", packageName)
-                .replace("{minutes}", minutes.toString())
-                .replace("{threshold}", thresholdMinutes.toString())
+        val mode = NotificationModeStore.getMode(context, packageName) ?: NotificationModeStore.MODE_IMMEDIATE
+        val title = if (mode == NotificationModeStore.MODE_INTERVAL) {
+            "Pengingat penggunaan"
+        } else {
+            "Batas penggunaan tercapai"
         }
-        val title = fill(titleTemplate)
-        val textTemplate = NotificationSettingsStore.getMessageTemplate(context) ?: "{appLabel} telah digunakan {minutes} menit (batas: {threshold})"
-        val text = fill(textTemplate)
+        val text = if (mode == NotificationModeStore.MODE_INTERVAL) {
+            "$appLabel telah digunakan $minutes menit (interval pengingat: $thresholdMinutes menit)"
+        } else {
+            "$appLabel telah digunakan $minutes menit (batas harian: $thresholdMinutes menit)"
+        }
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_USAGE)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
@@ -86,19 +87,24 @@ object NotificationHelper {
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
         val pendingIntent = PendingIntent.getActivity(context, 0, intent, flags)
 
+        val mode = NotificationModeStore.getMode(context, packageName) ?: NotificationModeStore.MODE_IMMEDIATE
         val minutes = 42
-        val thresholdMinutes = 60
-        val titleTemplate = NotificationSettingsStore.getTitleTemplate(context) ?: "Tes Notifikasi"
-        fun fill(t: String): String {
-            return t
-                .replace("{appLabel}", appLabel)
-                .replace("{packageName}", packageName)
-                .replace("{minutes}", minutes.toString())
-                .replace("{threshold}", thresholdMinutes.toString())
+        val thresholdMinutes = if (mode == NotificationModeStore.MODE_INTERVAL) {
+            NotificationModeStore.getIntervalMinutes(context, packageName) ?: 5
+        } else {
+            (UsageThresholdStore.getThreshold(context, packageName) ?: 60)
         }
-        val title = fill(titleTemplate)
-        val textTemplate = NotificationSettingsStore.getMessageTemplate(context) ?: "{appLabel} telah digunakan {minutes} menit (batas: {threshold})"
-        val text = fill(textTemplate)
+        val title = if (mode == NotificationModeStore.MODE_INTERVAL) {
+            "Pengingat penggunaan"
+        } else {
+            "Batas penggunaan tercapai"
+        }
+        val text = if (mode == NotificationModeStore.MODE_INTERVAL) {
+            "$appLabel telah digunakan $minutes menit (interval pengingat: $thresholdMinutes menit)"
+        } else {
+            "$appLabel telah digunakan $minutes menit (batas harian: $thresholdMinutes menit)"
+        }
+
         val builder = NotificationCompat.Builder(context, CHANNEL_ID_USAGE)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
