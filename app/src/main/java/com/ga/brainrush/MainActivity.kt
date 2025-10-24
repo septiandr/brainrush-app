@@ -19,6 +19,10 @@ import com.ga.brainrush.ui.home.HomeScreen
 import com.ga.brainrush.ui.theme.BrainrushTheme
 import com.ga.brainrush.alerts.NotificationOpenHelper
 import com.ga.brainrush.data.util.UsageStatsHelper
+import com.ga.brainrush.alerts.NotificationModeStore
+import com.ga.brainrush.alerts.UsageThresholdStore
+import android.content.Intent
+import com.ga.brainrush.alerts.UsageMonitorService
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,6 +35,12 @@ class MainActivity : ComponentActivity() {
         // Trigger notifikasi saat aplikasi dibuka sesuai mode
         if (UsageStatsHelper.hasUsagePermission(this)) {
             NotificationOpenHelper.notifyOnAppOpen(this)
+            // Mulai Foreground Service jika ada paket yang dimonitor
+            val hasMonitored = NotificationModeStore.getPackagesByMode(this, NotificationModeStore.MODE_INTERVAL).isNotEmpty() ||
+                    UsageThresholdStore.getAllThresholds(this).isNotEmpty()
+            if (hasMonitored) {
+                ContextCompat.startForegroundService(this, Intent(this, UsageMonitorService::class.java))
+            }
         }
         setContent {
             BrainrushTheme {

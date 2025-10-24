@@ -72,4 +72,15 @@ object NotificationModeStore {
             .filter { getMode(context, it) == mode }
             .toSet()
     }
+
+    // Hapus seluruh pengaturan notifikasi untuk sebuah paket
+    fun clearPackage(context: Context, packageName: String) {
+        val dateKey = todayKey()
+        prefs(context).edit()
+            .remove(KEY_PREFIX_MODE + packageName)
+            .remove(KEY_PREFIX_INTERVAL + packageName)
+            .remove(KEY_PREFIX_LAST_MARK + packageName + "_" + dateKey)
+            .remove(KEY_PREFIX_THRESHOLD_NOTIFIED + packageName + "_" + dateKey)
+            .apply()
+    }
 }

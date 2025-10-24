@@ -15,6 +15,8 @@ import com.ga.brainrush.R
 object NotificationHelper {
     private const val CHANNEL_ID_USAGE = "usage_alerts_v2"
     private const val CHANNEL_NAME_USAGE = "Usage Alerts (Pop-up)"
+    private const val CHANNEL_ID_MONITOR = "usage_monitor"
+    private const val CHANNEL_NAME_MONITOR = "Usage Monitor"
 
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -27,9 +29,36 @@ object NotificationHelper {
             }
             val manager: NotificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
+            // Channel foreground monitor (low importance, tanpa badge)
+            val monitor = NotificationChannel(
+                CHANNEL_ID_MONITOR,
+                CHANNEL_NAME_MONITOR,
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Notifikasi foreground untuk memantau penggunaan"
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+            }
+            manager.createNotificationChannel(monitor)
             // Hapus channel lama jika ada agar tidak mengaburkan perilaku
             try { manager.deleteNotificationChannel("usage_alerts") } catch (_: Exception) {}
         }
+    }
+
+    fun buildMonitorNotification(context: Context): Notification {
+        val intent = Intent(context, MainActivity::class.java)
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        val pendingIntent = PendingIntent.getActivity(context, 0, intent, flags)
+        return NotificationCompat.Builder(context, CHANNEL_ID_MONITOR)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Brainrush berjalan")
+            .setContentText("Memantau penggunaan aplikasi untuk batas notifikasi")
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setContentIntent(pendingIntent)
+            .build()
     }
 
     fun showUsageExceeded(context: Context, packageName: String, minutes: Int, thresholdMinutes: Int) {
